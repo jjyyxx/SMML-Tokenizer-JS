@@ -1,0 +1,19 @@
+{
+  "name": "smml-tokenizer-js",
+  "version": "1.0.0",
+  "description": "tokenizer for smml written in javascript",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jjyyxx/SMML-Tokenizer-JS.git"
+  },
+  "author": "NN708",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jjyyxx/SMML-Tokenizer-JS/issues"
+  },
+  "homepage": "https://github.com/jjyyxx/SMML-Tokenizer-JS#readme"
+}
