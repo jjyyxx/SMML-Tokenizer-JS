@@ -32,7 +32,19 @@ class Tokenizer {
      */
     tokenizeTrack(track) {
         const a = {
-            Common: [
+            root: [
+                {
+                    regex: /\[(\d+\.)+\]/,
+                    action: {
+                        token: 'volta'
+                    }
+                },
+                {
+                    regex: /<[^*]+>/,
+                    action: {
+                        token: 'instr'
+                    }
+                },
                 {
                     regex: /@[a-z]+/,
                     action: {
@@ -119,26 +131,91 @@ class Tokenizer {
                     }
                 }
             ],
-            root: [
-                {
-                    regex: /\[(\d+\.)+\]/,
-                    action: {
-                        token: 'volta'
-                    }
-                },
-                {
-                    regex: /<[^*]+>/,
-                    action: {
-                        token: 'instr'
-                    }
-                },
-                {
-                    include: 'Common'
-                }
-            ],
             Subtrack: [
                 {
-                    include: 'Common'
+                    regex: /@[a-z]+/,
+                    action: {
+                        token: 'macroIndicator'
+                    }
+                },
+                {
+                    regex: /(\w+)\s*\(/,
+                    action: {
+                        token: '@rematch',
+                        next: 'Func'
+                    }
+                },
+                {
+                    regex: /{(\d+\*)?/,
+                    action: {
+                        token: 'bracket',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /}/,
+                    action: {
+                        token: 'bracket',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /&/,
+                    action: {
+                        token: 'pr'
+                    }
+                },
+                {
+                    regex: /\*/,
+                    action: {
+                        token: 'pr'
+                    }
+                },
+                {
+                    regex: /\^/,
+                    action: {
+                        token: 'tie'
+                    }
+                },
+                {
+                    regex: /:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\//,
+                    action: {
+                        cases: {
+                            ':||:': {
+                                token: 'rEB',
+                            },
+                            ':||': {
+                                token: 'rE'
+                            },
+                            '||:': {
+                                token: 'rB',
+                            },
+                            '||': {
+                                token: 'te',
+                            },
+                            '|': {
+                                token: 'ba',
+                            },
+                            '/': {
+                                token: 'skip',
+                            },
+                            '@default': {
+                                token: 'pos'
+                            }
+                        }
+                    }
+                },
+                {
+                    regex: /[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
+                    action: {
+                        token: 'note'
+                    }
+                },
+                {
+                    regex: /\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
+                    action: {
+                        token: 'chord'
+                    }
                 }
             ],
             /* Sfunc: [
