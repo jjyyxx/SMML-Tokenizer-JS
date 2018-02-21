@@ -358,57 +358,12 @@ class Tokenizer {
                 }
             ]
         }
-        const part = this.handleSubtrack(track)
-        const length = part.length
         const state = []
         let currentState = 'root'
         let pointer = 0
-        let pointer1 = 0
         while (pointer < length) {
-            if (typeof part[pointer] === 'string' && pointer1 < part[pointer].length) {
-                if (currentState === 'root') {
 
-                }
-            } else { // subtrack
-
-            }
         }
-    }
-
-    handleSubtrack(track) {
-        const length = track.length
-        const part = []
-        let pointer = 0
-        let lastRight = 0
-        while (pointer < length) {
-            if (track.charAt(pointer) === '{') {
-                const right = this.findMatchBrace(track, pointer)
-                part.push(track.slice(0, pointer), this.handleSubtrack(track.slice(pointer + 1, right)))
-                pointer = right + 1
-                lastRight = pointer
-            } else {
-                pointer += 1
-            }
-        }
-        if (lastRight < length) {
-            part.push(track.slice(lastRight))
-        }
-        return part
-    }
-
-    findMatchBrace(str, startIndex) {
-        let stack = 1
-        while (stack > 0) {
-            startIndex += 1
-            switch (str.charAt(startIndex)) {
-            case '{':
-                stack += 1
-                break
-            case '}':
-                stack -= 1
-            }
-        }
-        return startIndex
     }
 
     split() {
