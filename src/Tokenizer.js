@@ -1,3 +1,5 @@
+const LibTokenizer = require('./LibTokenizer')
+
 const langDef = {
     root: [
         {
@@ -17,7 +19,7 @@ const langDef = {
             action: {
                 token: 'instr',
                 transform(instrs) {
-                    instrs.split(',').map((instr) => {
+                    return instrs[1].split(',').map((instr) => {
                         const info = instr.match(/(\w+)(\(\d+%\))?/)
                         return {
                             Instrument: info[1],
@@ -189,7 +191,7 @@ const langDef = {
             }
         },
         {
-            regex: /^([0-7x%])([',#b]*)([A-Zac-z]*)([-_.=]*)(`*)([:>]*)/,
+            regex: /^([0-7x%])([',#b]*)([A-Zac-z]*)([',#b]*)([-_.=]*)(`*)([:>]*)/,
             action: {
                 token: 'note',
                 transform(note) {
@@ -202,10 +204,10 @@ const langDef = {
                                 Chord: note[3] === undefined ? '' : note[3]
                             }
                         ],
-                        PitchOperators: '',
-                        DurationOperators: note[4] === undefined ? '' : note[4],
-                        VolumeOperators: note[6] === undefined ? '' : note[6],
-                        Staccato: note[5] === undefined ? 0 : note[5].length
+                        PitchOperators: note[4] === undefined ? '' : note[4],
+                        DurationOperators: note[5] === undefined ? '' : note[5],
+                        VolumeOperators: note[7] === undefined ? '' : note[7],
+                        Staccato: note[6] === undefined ? 0 : note[6].length
                     }
                 }
             }
@@ -423,10 +425,14 @@ class Tokenizer {
             }
             for (const track of section) {
                 const tra = this.tokenizeTrack(track)
-                if (this.isHeadTrack(tra)) {
-                    sec.Settings.push(...tra)
+                const instr = tra.shift()
+                if (instr instanceof Array) {
+                    sec.Tracks.push({
+                        Instruments: instr,
+                        Content: tra
+                    })
                 } else {
-                    sec.Tracks.push(tra)
+                    sec.Settings.push(instr, ...tra)    // maybe wrong
                 }
             }
             this.result.Sections.push(sec)
@@ -486,28 +492,26 @@ class Tokenizer {
                 } else {
                     action = element.action
                 }
-                if (action.token !== '@rematch') {
-                    if (action.token !== '@pass') {
-                        stateStore[depth].push({
-                            token: action.token,
-                            match,
-                            content: []
-                        })
-                    }
-                    pointer += match[0].length
-                }
                 if ('next' in action) {
+                    if (action.token !== '@pass') {
+                        stateStore[depth].push((content) => action.transform(match, content))
+                    }
                     if (action.next === '@pop') {
                         depth -= 1
                         const state = stateStore.pop()
                         states.pop()
-                        stateStore[depth][stateStore[depth].length - 1].content.push(...state)
+                        stateStore[depth].push(stateStore[depth].pop()(state))
                     } else {
                         stateStore.push([])
                         states.push(action.next)
                         depth += 1
                     }
+                } else {
+                    if (action.token !== '@pass') {
+                        stateStore[depth].push(action.transform(match))
+                    }
                 }
+                pointer += match[0].length
                 break
             }
         }
@@ -530,7 +534,7 @@ class Tokenizer {
 
     extractHeader() {
         this.content = this.content.replace(/([^]*)^#\s*End/m, (_, headers) => {
-
+            new LibTokenizer(headers).tokenize()
             return ''
         })
         /* this.content = this.content.replace(/^#\s*Include\s+"([^"]+)"/gm, (str, name) => {
