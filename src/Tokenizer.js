@@ -13,7 +13,7 @@ const langDef = {
             }
         },
         {
-            regex: /^<([A-Za-z]+(\(.+\))?)(,[A-Za-z]+(\(.+\))?)*>/,
+            regex: /^<([A-Za-z0-9]+(\(.+\))?)(,[A-Za-z0-9]+(\(.+\))?)*>/,
             action: {
                 token: 'instr',
                 transform(instrs) {
@@ -57,7 +57,7 @@ const langDef = {
             regex: /^{(\d+\*)?/,
             action: {
                 token: 'subtrack',
-                next: 'Subtrack',
+                next: 'root',
                 transform(subtrack, content) {
                     let repeat
                     if (subtrack[1] !== undefined) {
@@ -76,6 +76,13 @@ const langDef = {
                         Content: content
                     }
                 }
+            }
+        },
+        {
+            regex: /^}/,
+            action: {
+                token: '@pass',
+                next: '@pop'
             }
         },
         {
@@ -227,162 +234,12 @@ const langDef = {
             }
         }
     ],
-    Subtrack: [
-        {
-            regex: /^@[a-z]+/,
-            action: {
-                token: 'macroIndicator'
-            }
-        },
-        {
-            regex: /^([A-Za-z]\w*)\s*\(/,
-            action: {
-                token: 'func',
-                next: 'Func'
-            }
-        },
-        {
-            regex: /^{(\d+\*)?/,
-            action: {
-                token: 'subtrack',
-                next: 'Subtrack'
-            }
-        },
-        {
-            regex: /^}/,
-            action: {
-                token: '@pass',
-                next: '@pop'
-            }
-        },
-        {
-            regex: /^&/,
-            action: {
-                token: 'pr'
-            }
-        },
-        {
-            regex: /^\*/,
-            action: {
-                token: 'pr'
-            }
-        },
-        {
-            regex: /^\^/,
-            action: {
-                token: 'tie'
-            }
-        },
-        {
-            regex: /^(:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\/)/,
-            action: {
-                cases: {
-                    ':||:': {
-                        token: 'rEB',
-                    },
-                    ':||': {
-                        token: 'rE'
-                    },
-                    '||:': {
-                        token: 'rB',
-                    },
-                    '||': {
-                        token: 'te',
-                    },
-                    '|': {
-                        token: 'ba',
-                    },
-                    '/': {
-                        token: 'skip',
-                    },
-                    '@default': {
-                        token: 'pos'
-                    }
-                }
-            }
-        },
-        {
-            regex: /^[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
-            action: {
-                token: 'note'
-            }
-        },
-        {
-            regex: /^\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
-            action: {
-                token: 'chord'
-            }
-        }
-    ],
-    /* Sfunc: [
-        {
-            regex: /\(\.\)/,
-            action: {
-                token: 'func',
-                next: '@pop'
-            }
-        },
-        {
-            regex: /\(\^/,
-            action: {
-                token: 'func',
-                next: 'Subtrack'
-            }
-        },
-        {
-            regex: /\(|\^|:|1=/,
-            action: {
-                token: 'func',
-            }
-        },
-        {
-            regex: /{/,
-            action: {
-                token: '@bracket',
-                next: 'Subtrack'
-            }
-        },
-        {
-            regex: /[^\)]+\^\)/,
-            action: {
-                token: '@rematch',
-                next: 'Subtrack'
-            }
-        },
-        {
-            regex: /\^\)/,
-            action: {
-                token: 'func',
-                next: '@pop'
-            }
-        },
-        {
-            regex: /\)/,
-            action: {
-                token: 'func',
-                next: '@pop'
-            }
-        },
-        {
-            regex: /[A-Za-zb#%\d\.\-\/]/,
-            action: {
-                token: 'number',
-            }
-        },
-    ], */
     Func: [
-        /*                 {
-                            regex: /^\w+\s*\(/,
-                            action: {
-                                token: 'func',
-                                next: 'Arg'
-                            }
-                        }, */
         {
             regex: /^{/,
             action: {
                 token: 'subtrack',
-                next: 'Subtrack'
+                next: 'root'
             }
         },
         {
@@ -436,7 +293,7 @@ const langDef = {
             regex: /^{/,
             action: {
                 token: 'subtrack',
-                next: 'Subtrack'
+                next: 'root'
             }
         },
         {
@@ -458,42 +315,7 @@ const langDef = {
                 token: 'number'
             }
         }
-    ]/* ,
-    Arg: [
-        {
-            regex: /^{/,
-            action: {
-                token: 'subtrack',
-                next: 'Subtrack'
-            }
-        },
-        {
-            regex: /^"[^"]*"/,
-            action: {
-                token: 'string'
-            }
-        },
-        {
-            regex: /^\[/,
-            action: {
-                token: 'array',
-                next: 'Array'
-            }
-        },
-        {
-            regex: /^(,|\)|\])/,
-            action: {
-                token: '@rematch',
-                next: '@pop'
-            }
-        },
-        {
-            regex: /^[^,)}[\]"]+/,
-            action: {
-                token: 'number'
-            }
-        }
-    ] */
+    ]
 }
 
 class Tokenizer {
@@ -522,7 +344,6 @@ class Tokenizer {
         this.removeComment()
         this.extractHeader()
         this.split()
-        const secs = []
         for (const section of this.sections) {
             const sec = {
                 Settings: [],
