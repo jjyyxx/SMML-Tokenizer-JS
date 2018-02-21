@@ -31,16 +31,266 @@ class Tokenizer {
      * @param {string} track 
      */
     tokenizeTrack(track) {
+        const a = {
+            Common: [
+                {
+                    regex: /@[a-z]+/,
+                    action: {
+                        token: 'macroIndicator'
+                    }
+                },
+                {
+                    regex: /(\w+)\s*\(/,
+                    action: {
+                        token: '@rematch',
+                        next: 'Func'
+                    }
+                },
+                {
+                    regex: /{(\d+\*)?/,
+                    action: {
+                        token: 'bracket',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /}/,
+                    action: {
+                        token: 'bracket',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /&/,
+                    action: {
+                        token: 'pr'
+                    }
+                },
+                {
+                    regex: /\*/,
+                    action: {
+                        token: 'pr'
+                    }
+                },
+                {
+                    regex: /\^/,
+                    action: {
+                        token: 'tie'
+                    }
+                },
+                {
+                    regex: /:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\//,
+                    action: {
+                        cases: {
+                            ':||:': {
+                                token: 'rEB',
+                            },
+                            ':||': {
+                                token: 'rE'
+                            },
+                            '||:': {
+                                token: 'rB',
+                            },
+                            '||': {
+                                token: 'te',
+                            },
+                            '|': {
+                                token: 'ba',
+                            },
+                            '/': {
+                                token: 'skip',
+                            },
+                            '@default': {
+                                token: 'pos'
+                            }
+                        }
+                    }
+                },
+                {
+                    regex: /[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
+                    action: {
+                        token: 'note'
+                    }
+                },
+                {
+                    regex: /\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
+                    action: {
+                        token: 'chord'
+                    }
+                }
+            ],
+            root: [
+                {
+                    regex: /\[(\d+\.)+\]/,
+                    action: {
+                        token: 'volta'
+                    }
+                },
+                {
+                    regex: /<[^*]+>/,
+                    action: {
+                        token: 'instr'
+                    }
+                },
+                {
+                    include: 'Common'
+                }
+            ],
+            Subtrack: [
+                {
+                    include: 'Common'
+                }
+            ],
+            /* Sfunc: [
+                {
+                    regex: /\(\.\)/,
+                    action: {
+                        token: 'func',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /\(\^/,
+                    action: {
+                        token: 'func',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /\(|\^|:|1=/,
+                    action: {
+                        token: 'func',
+                    }
+                },
+                {
+                    regex: /{/,
+                    action: {
+                        token: '@bracket',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /[^\)]+\^\)/,
+                    action: {
+                        token: '@rematch',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /\^\)/,
+                    action: {
+                        token: 'func',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /\)/,
+                    action: {
+                        token: 'func',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /[A-Za-zb#%\d\.\-\/]/,
+                    action: {
+                        token: 'number',
+                    }
+                },
+            ], */
+            Func: [
+                {
+                    regex: /\w+\s*\(/,
+                    action: {
+                        token: 'func',
+                        next: 'Arg'
+                    }
+                },
+                {
+                    regex: /\)/,
+                    action: {
+                        token: 'func',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /,\s*/,
+                    action: {
+                        token: 'func',
+                        next: 'Arg'
+                    }
+                }
+            ],
+            Array: [
+                {
+                    regex: /\[/,
+                    action: {
+                        token: 'func',
+                        bracket: '@open',
+                        next: 'Arg'
+                    }
+                },
+                {
+                    regex: /,\s*/,
+                    action: {
+                        token: 'func',
+                        next: 'Arg'
+                    }
+                },
+                {
+                    regex: /\]/,
+                    action: {
+                        token: 'func',
+                        bracket: '@close',
+                        next: '@pop'
+                    }
+                },
+            ],
+            Arg: [
+                {
+                    regex: /{/,
+                    action: {
+                        token: '@bracket',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /"[^"]*"/,
+                    action: {
+                        token: 'string'
+                    }
+                },
+                {
+                    regex: /\[/,
+                    action: {
+                        token: '@rematch',
+                        next: 'Array'
+                    }
+                },
+                {
+                    regex: /,|\)|\]/,
+                    action: {
+                        token: '@rematch',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /[^,)}[\]"]+/,
+                    action: {
+                        token: 'number'
+                    }
+                }
+            ]
+        }
         const part = this.handleSubtrack(track)
         const length = part.length
         const state = []
         let currentState = 'root'
         let pointer = 0
         let pointer1 = 0
-        while (pointer < length){
+        while (pointer < length) {
             if (typeof part[pointer] === 'string' && pointer1 < part[pointer].length) {
                 if (currentState === 'root') {
-                    
+
                 }
             } else { // subtrack
 
@@ -58,7 +308,7 @@ class Tokenizer {
                 const right = this.findMatchBrace(track, pointer)
                 part.push(track.slice(0, pointer), this.handleSubtrack(track.slice(pointer + 1, right)))
                 pointer = right + 1
-                lastRight = pointer 
+                lastRight = pointer
             } else {
                 pointer += 1
             }
@@ -69,11 +319,11 @@ class Tokenizer {
         return part
     }
 
-    findMatchBrace (str, startIndex) {
+    findMatchBrace(str, startIndex) {
         let stack = 1
         while (stack > 0) {
             startIndex += 1
-            switch (str.charAt(startIndex)){
+            switch (str.charAt(startIndex)) {
             case '{':
                 stack += 1
                 break
