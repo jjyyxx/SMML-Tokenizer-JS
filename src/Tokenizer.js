@@ -31,67 +31,60 @@ class Tokenizer {
      * @param {string} track 
      */
     tokenizeTrack(track) {
-        const a = {
+        const langDef = {
             root: [
                 {
-                    regex: /\[(\d+\.)+\]/,
+                    regex: /^\[(\d+\.)+\]/,
                     action: {
                         token: 'volta'
                     }
                 },
                 {
-                    regex: /<[^*]+>/,
+                    regex: /^<([^*]+)>/,
                     action: {
                         token: 'instr'
                     }
                 },
                 {
-                    regex: /@[a-z]+/,
+                    regex: /^@[a-z]+/,
                     action: {
                         token: 'macroIndicator'
                     }
                 },
                 {
-                    regex: /(\w+)\s*\(/,
+                    regex: /^([A-Za-z]\w*)\s*\(/,
                     action: {
-                        token: '@rematch',
+                        token: 'func',
                         next: 'Func'
                     }
                 },
                 {
-                    regex: /{(\d+\*)?/,
+                    regex: /^{(\d+\*)?/,
                     action: {
-                        token: 'bracket',
+                        token: 'subtrack',
                         next: 'Subtrack'
                     }
                 },
                 {
-                    regex: /}/,
-                    action: {
-                        token: 'bracket',
-                        next: '@pop'
-                    }
-                },
-                {
-                    regex: /&/,
+                    regex: /^&/,
                     action: {
                         token: 'pr'
                     }
                 },
                 {
-                    regex: /\*/,
+                    regex: /^\*/,
                     action: {
                         token: 'pr'
                     }
                 },
                 {
-                    regex: /\^/,
+                    regex: /^\^/,
                     action: {
                         token: 'tie'
                     }
                 },
                 {
-                    regex: /:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\//,
+                    regex: /^(:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\/)/,
                     action: {
                         cases: {
                             ':||:': {
@@ -119,13 +112,13 @@ class Tokenizer {
                     }
                 },
                 {
-                    regex: /[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
+                    regex: /^[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
                     action: {
                         token: 'note'
                     }
                 },
                 {
-                    regex: /\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
+                    regex: /^\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
                     action: {
                         token: 'chord'
                     }
@@ -133,52 +126,52 @@ class Tokenizer {
             ],
             Subtrack: [
                 {
-                    regex: /@[a-z]+/,
+                    regex: /^@[a-z]+/,
                     action: {
                         token: 'macroIndicator'
                     }
                 },
                 {
-                    regex: /(\w+)\s*\(/,
+                    regex: /^([A-Za-z]\w*)\s*\(/,
                     action: {
-                        token: '@rematch',
+                        token: 'func',
                         next: 'Func'
                     }
                 },
                 {
-                    regex: /{(\d+\*)?/,
+                    regex: /^{(\d+\*)?/,
                     action: {
-                        token: 'bracket',
+                        token: 'subtrack',
                         next: 'Subtrack'
                     }
                 },
                 {
-                    regex: /}/,
+                    regex: /^}/,
                     action: {
-                        token: 'bracket',
+                        token: '@pass',
                         next: '@pop'
                     }
                 },
                 {
-                    regex: /&/,
+                    regex: /^&/,
                     action: {
                         token: 'pr'
                     }
                 },
                 {
-                    regex: /\*/,
+                    regex: /^\*/,
                     action: {
                         token: 'pr'
                     }
                 },
                 {
-                    regex: /\^/,
+                    regex: /^\^/,
                     action: {
                         token: 'tie'
                     }
                 },
                 {
-                    regex: /:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\//,
+                    regex: /^(:\|\|:|:\|\||\|\|:|\|\||\||\/\d*:|\/)/,
                     action: {
                         cases: {
                             ':||:': {
@@ -206,13 +199,13 @@ class Tokenizer {
                     }
                 },
                 {
-                    regex: /[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
+                    regex: /^[0-7x%][A-Za-z]*[',#b]*[-_.=`]*[:>]*/,
                     action: {
                         token: 'note'
                     }
                 },
                 {
-                    regex: /\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
+                    regex: /^\[([0-7x%][',#bA-Za-z]*)+\][',#b]*[-_.=`]*[:>]*/,
                     action: {
                         token: 'chord'
                     }
@@ -275,99 +268,182 @@ class Tokenizer {
                 },
             ], */
             Func: [
+                /*                 {
+                                    regex: /^\w+\s*\(/,
+                                    action: {
+                                        token: 'func',
+                                        next: 'Arg'
+                                    }
+                                }, */
                 {
-                    regex: /\w+\s*\(/,
+                    regex: /^{/,
                     action: {
-                        token: 'func',
-                        next: 'Arg'
-                    }
-                },
-                {
-                    regex: /\)/,
-                    action: {
-                        token: 'func',
-                        next: '@pop'
-                    }
-                },
-                {
-                    regex: /,\s*/,
-                    action: {
-                        token: 'func',
-                        next: 'Arg'
-                    }
-                }
-            ],
-            Array: [
-                {
-                    regex: /\[/,
-                    action: {
-                        token: 'func',
-                        bracket: '@open',
-                        next: 'Arg'
-                    }
-                },
-                {
-                    regex: /,\s*/,
-                    action: {
-                        token: 'func',
-                        next: 'Arg'
-                    }
-                },
-                {
-                    regex: /\]/,
-                    action: {
-                        token: 'func',
-                        bracket: '@close',
-                        next: '@pop'
-                    }
-                },
-            ],
-            Arg: [
-                {
-                    regex: /{/,
-                    action: {
-                        token: '@bracket',
+                        token: 'subtrack',
                         next: 'Subtrack'
                     }
                 },
                 {
-                    regex: /"[^"]*"/,
+                    regex: /^"[^"]*"/,
                     action: {
                         token: 'string'
                     }
                 },
                 {
-                    regex: /\[/,
+                    regex: /^\[/,
                     action: {
-                        token: '@rematch',
+                        token: 'array',
                         next: 'Array'
                     }
                 },
                 {
-                    regex: /,|\)|\]/,
+                    regex: /^[^,)}[\]"]+/,
+                    action: {
+                        token: 'number'
+                    }
+                },
+                {
+                    regex: /^\)/,
+                    action: {
+                        token: '@pass',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /^,\s*/,
+                    action: {
+                        token: '@pass',
+                    }
+                }
+            ],
+            Array: [
+                {
+                    regex: /^,\s*/,
+                    action: {
+                        token: '@pass',
+                    }
+                },
+                {
+                    regex: /^\]/,
+                    action: {
+                        token: '@pass',
+                        next: '@pop'
+                    }
+                },
+                {
+                    regex: /^{/,
+                    action: {
+                        token: 'subtrack',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /^"[^"]*"/,
+                    action: {
+                        token: 'string'
+                    }
+                },
+                {
+                    regex: /^\[/,
+                    action: {
+                        token: 'array',
+                        next: 'Array'
+                    }
+                },
+                {
+                    regex: /^[^,)}[\]"]+/,
+                    action: {
+                        token: 'number'
+                    }
+                }
+            ]/* ,
+            Arg: [
+                {
+                    regex: /^{/,
+                    action: {
+                        token: 'subtrack',
+                        next: 'Subtrack'
+                    }
+                },
+                {
+                    regex: /^"[^"]*"/,
+                    action: {
+                        token: 'string'
+                    }
+                },
+                {
+                    regex: /^\[/,
+                    action: {
+                        token: 'array',
+                        next: 'Array'
+                    }
+                },
+                {
+                    regex: /^(,|\)|\])/,
                     action: {
                         token: '@rematch',
                         next: '@pop'
                     }
                 },
                 {
-                    regex: /[^,)}[\]"]+/,
+                    regex: /^[^,)}[\]"]+/,
                     action: {
                         token: 'number'
                     }
                 }
-            ]
+            ] */
         }
-        const state = []
-        let currentState = 'root'
+        track = track.trim()
+        const stateStore = [[]]
+        const states = ['root']
+        let depth = 0
         let pointer = 0
-        while (pointer < length) {
+        while (pointer < track.length) {
+            const temp = track.slice(pointer)
+            const slice = temp.trim()
+            pointer += temp.length - slice.length
+            const patterns = langDef[states[depth]]
 
+            for (let index = 0; index < patterns.length; index++) {
+                const element = patterns[index]
+                const match = slice.match(element.regex)
+                if (match === null) continue
+                let action
+                if ('cases' in element.action) {
+                    action = element.action.cases[match[0]]
+                } else {
+                    action = element.action
+                }
+                if (action.token !== '@rematch') {
+                    if (action.token !== '@pass') {
+                        stateStore[depth].push({
+                            token: action.token,
+                            match,
+                            content: []
+                        })
+                    }
+                    pointer += match[0].length
+                }
+                if ('next' in action) {
+                    if (action.next === '@pop') {
+                        depth -= 1
+                        const state = stateStore.pop()
+                        states.pop()
+                        stateStore[depth][stateStore[depth].length - 1].content.push(...state)
+                    } else {
+                        stateStore.push([])
+                        states.push(action.next)
+                        depth += 1
+                    }
+                }
+                break
+            }
         }
     }
 
     split() {
-        this.sections = this.content.split(/(\r?\n){3,}/).filter((section) => section !== '' && section !== '\n' && section !== '\r\n').map((section) => section.split(/\r?\n\r?\n/))
+        this.sections = this.content.split(/(\r?\n){3,}/)
+            .filter((section) => section !== '' && section !== '\n' && section !== '\r\n')
+            .map((section) => section.split(/\r?\n\r?\n/).map((track) => track.replace(/\r?\n/, '')))
     }
 
     regularize() {
