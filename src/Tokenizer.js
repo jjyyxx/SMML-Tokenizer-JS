@@ -236,32 +236,6 @@ const langDef = {
     ],
     Func: [
         {
-            regex: /^{/,
-            action: {
-                token: 'subtrack',
-                next: 'root'
-            }
-        },
-        {
-            regex: /^"[^"]*"/,
-            action: {
-                token: 'string'
-            }
-        },
-        {
-            regex: /^\[/,
-            action: {
-                token: 'array',
-                next: 'Array'
-            }
-        },
-        {
-            regex: /^[^,)}[\]"]+/,
-            action: {
-                token: 'number'
-            }
-        },
-        {
             regex: /^\)/,
             action: {
                 token: '@pass',
@@ -272,6 +246,68 @@ const langDef = {
             regex: /^,\s*/,
             action: {
                 token: '@pass',
+            }
+        },
+        {
+            regex: /^{(\d+\*)?/,
+            action: {
+                token: 'subtrack',
+                next: 'root',
+                transform(subtrack, content) {
+                    let repeat
+                    if (subtrack[1] !== undefined) {
+                        repeat = subtrack[1].slice(0, -1)
+                    } else {
+                        const pos = content.filter((e) => e.Type === 'BarLine' && e.Order[0] > 0)
+                        if (pos.length > 0) {
+                            repeat = Math.max(...pos.map((e) => Math.max(...e.Order)))
+                        } else {
+                            repeat = -1
+                        }
+                    }
+                    return {
+                        Type: 'Subtrack',
+                        Repeat: repeat,
+                        Content: content
+                    }
+                }
+            }
+        },
+        {
+            regex: /^"([^"]*)"/,
+            action: {
+                token: 'string',
+                transform(str) {
+                    return {
+                        Type: 'String',
+                        Content: str[1]
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\[/,
+            action: {
+                token: 'array',
+                next: 'Array',
+                transform (_, content) {
+                    return {
+                        Type: 'Array',
+                        Content: content
+                    }
+                }
+            }
+        },
+        {
+            regex: /^[^,)}[\]"]+/,
+            action: {
+                token: 'number',
+                transform (num) {
+                    return {
+                        Type: 'Expression',
+                        Content: num[0]
+                    }
+                }
             }
         }
     ],
@@ -290,29 +326,65 @@ const langDef = {
             }
         },
         {
-            regex: /^{/,
+            regex: /^{(\d+\*)?/,
             action: {
                 token: 'subtrack',
-                next: 'root'
+                next: 'root',
+                transform(subtrack, content) {
+                    let repeat
+                    if (subtrack[1] !== undefined) {
+                        repeat = subtrack[1].slice(0, -1)
+                    } else {
+                        const pos = content.filter((e) => e.Type === 'BarLine' && e.Order[0] > 0)
+                        if (pos.length > 0) {
+                            repeat = Math.max(...pos.map((e) => Math.max(...e.Order)))
+                        } else {
+                            repeat = -1
+                        }
+                    }
+                    return {
+                        Type: 'Subtrack',
+                        Repeat: repeat,
+                        Content: content
+                    }
+                }
             }
         },
         {
-            regex: /^"[^"]*"/,
+            regex: /^"([^"]*)"/,
             action: {
-                token: 'string'
+                token: 'string',
+                transform(str) {
+                    return {
+                        Type: 'String',
+                        Content: str[1]
+                    }
+                }
             }
         },
         {
             regex: /^\[/,
             action: {
                 token: 'array',
-                next: 'Array'
+                next: 'Array',
+                transform (_, content) {
+                    return {
+                        Type: 'Array',
+                        Content: content
+                    }
+                }
             }
         },
         {
             regex: /^[^,)}[\]"]+/,
             action: {
-                token: 'number'
+                token: 'number',
+                transform (num) {
+                    return {
+                        Type: 'Expression',
+                        Content: num[0]
+                    }
+                }
             }
         }
     ]
