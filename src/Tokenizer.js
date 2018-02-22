@@ -1,5 +1,3 @@
-const LibTokenizer = require('./LibTokenizer')
-
 const langDef = {
     root: [
         {
@@ -9,17 +7,17 @@ const langDef = {
                 transform(volta) {
                     return {
                         Type: 'Volta',
-                        Order: volta[0].split('.').slice(0, -1).map((s) => Number(s))
+                        Order: volta[0].slice(1, -1).split('.').slice(0, -1).map((s) => Number(s))
                     }
                 }
             }
         },
         {
-            regex: /^<([A-Za-z0-9]+(\(.+\))?)(,[A-Za-z0-9]+(\(.+\))?)*>/,
+            regex: /^<([A-Za-z0-9]+:)?([A-Za-z0-9]+(\(.+\))?)(,[A-Za-z0-9]+(\(.+\))?)*>/,
             action: {
                 token: 'instr',
-                transform(instrs) {
-                    return instrs[1].split(',').map((instr) => {
+                transform(instrs) { // For ID
+                    return instrs[2].split(',').map((instr) => {
                         const info = instr.match(/(\w+)(\(\d+%\))?/)
                         return {
                             Instrument: info[1],
@@ -199,14 +197,14 @@ const langDef = {
                         Type: 'Note',
                         Pitches: [
                             {
-                                ScaleDegree: note[1],
-                                PitchOperators: note[2] === undefined ? '' : note[2],
+                                Degree: note[1],
+                                PitOp: note[2] === undefined ? '' : note[2],
                                 Chord: note[3] === undefined ? '' : note[3]
                             }
                         ],
-                        PitchOperators: note[4] === undefined ? '' : note[4],
-                        DurationOperators: note[5] === undefined ? '' : note[5],
-                        VolumeOperators: note[7] === undefined ? '' : note[7],
+                        PitOp: note[4] === undefined ? '' : note[4],
+                        DurOp: note[5] === undefined ? '' : note[5],
+                        VolOp: note[7] === undefined ? '' : note[7],
                         Staccato: note[6] === undefined ? 0 : note[6].length
                     }
                 }
@@ -222,14 +220,14 @@ const langDef = {
                         Pitches: note[1].match(/[0-7x%][',#A-Za-z]*/g).map((pitch) => {
                             const parts = pitch.match(/([0-7x%])([',#b]*)([ac-zA-Z]*)/)
                             return {
-                                ScaleDegree: parts[1],
-                                PitchOperators: parts[2] === undefined ? '' : parts[2],
+                                Degree: parts[1],
+                                PitOp: parts[2] === undefined ? '' : parts[2],
                                 Chord: parts[3] === undefined ? '' : parts[3]
                             }
                         }),
-                        PitchOperators: note[3] === undefined ? '' : note[3],
-                        DurationOperators: note[4] === undefined ? '' : note[4],
-                        VolumeOperators: note[6] === undefined ? '' : note[6],
+                        PitOp: note[3] === undefined ? '' : note[3],
+                        DurOp: note[4] === undefined ? '' : note[4],
+                        VolOp: note[6] === undefined ? '' : note[6],
                         Staccato: note[5] === undefined ? 0 : note[5].length
                     }
                 }
@@ -292,7 +290,7 @@ const langDef = {
             action: {
                 token: 'array',
                 next: 'Array',
-                transform (_, content) {
+                transform(_, content) {
                     return {
                         Type: 'Array',
                         Content: content
@@ -304,7 +302,7 @@ const langDef = {
             regex: /^[^,)}[\]"]+/,
             action: {
                 token: 'number',
-                transform (num) {
+                transform(num) {
                     return {
                         Type: 'Expression',
                         Content: num[0]
@@ -369,7 +367,7 @@ const langDef = {
             action: {
                 token: 'array',
                 next: 'Array',
-                transform (_, content) {
+                transform(_, content) {
                     return {
                         Type: 'Array',
                         Content: content
@@ -381,7 +379,7 @@ const langDef = {
             regex: /^[^,)}[\]"]+/,
             action: {
                 token: 'number',
-                transform (num) {
+                transform(num) {
                     return {
                         Type: 'Expression',
                         Content: num[0]
@@ -392,81 +390,102 @@ const langDef = {
     ]
 }
 
-class Tokenizer {
-    /**
-     * Construct a tokenizer
-     * @param {string} content SMML string to tokenize
-     */
-    constructor(content) {
-        this.content = content
-        this.context = {
-            include: [],
-            rawMacros: {},
-            states: []
-        }
-        this.sections = undefined
-        this.pointer = 0
-        this.result = {
-            Library: [],
-            Sections: []
-        }
-    }
-
-    tokenize() {
-        this.processMacro()
-        this.regularize()
-        this.removeComment()
-        this.extractHeader()
-        this.split()
-        for (const section of this.sections) {
-            const sec = {
-                Settings: [],
-                Tracks: []
-            }
-            for (const track of section) {
-                const tra = this.tokenizeTrack(track)
-                const instr = tra.shift()
-                if (instr instanceof Array) {
-                    sec.Tracks.push({
-                        Instruments: instr,
-                        Content: tra
-                    })
-                } else {
-                    sec.Settings.push(instr, ...tra)    // maybe wrong
+const libDef = [
+    {
+        regex: /^#\s*Chord([^]+?)\r?\n(?=#)/,
+        type: 'Chord',
+        transform(chords) {
+            const result = []
+            const chordDefs = chords[1].split(/\r?\n/)
+            for (const chordDef of chordDefs) {
+                const res = chordDef.match(/^([A-Za-z])\t+([^\t]+)\t+([^\t]+)/)
+                if (res === null) continue
+                const parts = res[3].split(',')
+                const pitches = []
+                for (const part of parts) {
+                    const num = Number(part)
+                    if (Number.isNaN(num)) {
+                        const match = part.trim().match(/\[(.*?)\](-?\d+)?/)
+                        let delta
+                        if (match[2] === undefined) {
+                            delta = 0
+                        } else {
+                            delta = Number(match[2])
+                        }
+                        if (match[1] === '') {
+                            pitches.push([1, -1, delta])
+                        } else {
+                            const num2 = Number(match[1])
+                            if (Number.isNaN(num2)) {
+                                let [head, tail] = match[1].split(';')
+                                head = Number(head)
+                                if (tail === '') {
+                                    tail = -1
+                                } else {
+                                    tail = Number(tail)
+                                }
+                                pitches.push([head, tail, delta])
+                            } else {
+                                pitches.push([num2, num2, delta])
+                            }
+                        }
+                    } else {
+                        pitches.push([1, 1, num])
+                    }
                 }
+                result.push({
+                    Notation: res[1],
+                    Comment: res[2],
+                    Pitches: pitches
+                })
             }
-            this.result.Sections.push(sec)
+            return {
+                Type: 'Chord',
+                Data: result
+            }
         }
-    }
-
-    processMacro() {
-        const macros = {
-            Type: 'Track',
-            Data: []
+    },
+    {
+        regex: /^#\s*Function([^]+?)\r?\n(?=#)/,
+        type: 'Function',
+        transform(funcs) {
+            return {
+                Type: 'Function',
+                Data: []
+            }
         }
-        const keys = Object.keys(this.context.rawMacros)
-        for (const key of keys) {
-            macros.Data.push({
-                Name: key,
-                Content: this.tokenizeTrack(this.context.rawMacros[key])
-            })
+    },
+    {
+        regex: /^#\s*Track([^]+?)\r?\n(?=#)/,
+        type: 'Macro',
+        transform(macroAll) {
+            const result = []
+            const macros = macroAll[0].match(/<\*\w+\*>[^]+?(?=<\*(\w+)\*>|$)/g)
+            for (const macro of macros) {
+                const [_, name, content] = macro.match(/<\*(\w+)\*>([^]+)/)
+                result.push({
+                    Name: name,
+                    Content: Tokenizer.tokenizeTrack(content)
+                })
+            }
+            return {
+                Type: 'Track',
+                Data: result
+            }
         }
-        this.result.Library.push(macros)
+    },
+    {
+        regex: /^#\s*End/,
+        type: '@terminal'
     }
+]
 
-    isHeadTrack(track) {
-        const heads = ['volta', 'rE', 'rB']
-        const settings = ['ConOct', 'Vol', 'Spd', 'Key', 'Oct', 'KeyOct', 'Beat', 'Bar', 'BarBeat', 'Dur', 'Acct', 'Light', 'Seg', 'Port', 'Trace', 'FadeIn', 'FadeOut', 'Rev', 'Ferm', 'Stac']
-        return track.every((element) => {
-            return heads.includes(element.token) || (element.token === 'func' && settings.includes(element.match[1]))
-        })
-    }
-
+class Tokenizer {
     /**
      * 
      * @param {string} track 
      */
-    tokenizeTrack(track) {
+    static tokenizeTrack(track) {
         track = track.trim()
         const stateStore = [[]]
         const states = ['root']
@@ -517,11 +536,70 @@ class Tokenizer {
         }
         return stateStore[0]
     }
+    /**
+     * Construct a tokenizer
+     * @param {string} content SMML string to tokenize
+     */
+    constructor(content) {
+        this.content = content
+        this.include = []
+        this.sections = undefined
+        this.libs = undefined
+        this.result = {
+            Library: [],
+            Sections: []
+        }
+    }
+
+    tokenize() {
+        this.regularize()
+        this.removeComment()
+        this.extractHeader()
+        this.split()
+        for (const section of this.sections) {
+            const sec = {
+                Settings: [],
+                Tracks: []
+            }
+            for (const track of section) {
+                const tra = this.tokenizeTrack(track)
+                const instr = tra.shift()
+                if (instr instanceof Array) {
+                    sec.Tracks.push({
+                        Instruments: instr,
+                        Content: tra
+                    })
+                } else {
+                    sec.Settings.push(instr, ...tra)    // maybe wrong
+                }
+            }
+            this.result.Sections.push(sec)
+        }
+        return this.result
+    }
+
+    isHeadTrack(track) {
+        const heads = ['volta', 'rE', 'rB']
+        const settings = ['ConOct', 'Vol', 'Spd', 'Key', 'Oct', 'KeyOct', 'Beat', 'Bar', 'BarBeat', 'Dur', 'Acct', 'Light', 'Seg', 'Port', 'Trace', 'FadeIn', 'FadeOut', 'Rev', 'Ferm', 'Stac']
+        return track.every((element) => {
+            return heads.includes(element.token) || (element.token === 'func' && settings.includes(element.match[1]))
+        })
+    }
+
+    /**
+     * 
+     * @param {string} track 
+     */
+    tokenizeTrack(track) {
+        return Tokenizer.tokenizeTrack(track)
+    }
 
     split() {
         this.sections = this.content.split(/(\r?\n){3,}/)
             .filter((section) => section !== '' && section !== '\n' && section !== '\r\n')
-            .map((section) => section.split(/\r?\n\r?\n/).map((track) => track.replace(/\r?\n/, '')))
+            .map((section) => section.split(/\r?\n\r?\n/)
+                .filter((track) => track !== '')
+                .map((track) => track.replace(/\r?\n/, '')))
     }
 
     regularize() {
@@ -533,36 +611,65 @@ class Tokenizer {
     }
 
     extractHeader() {
-        this.content = this.content.replace(/([^]*)^#\s*End/m, (_, headers) => {
-            new LibTokenizer(headers).tokenize()
+        this.content = this.content.replace(/^#\s*Include\s+"([^"]+)"/gm, (str, name) => {
+            this.result.Library.push({
+                Type: 'Package',
+                Path: name,
+                Content: new LibTokenizer(name, false).tokenize()
+            })
+            return ''
+        }).replace(/[^]*^#\s*End/m, (headers) => {
+            this.result.Library.push(...new LibTokenizer(headers).tokenize())
             return ''
         })
-        /* this.content = this.content.replace(/^#\s*Include\s+"([^"]+)"/gm, (str, name) => {
-            this.context.include.push(name)
+    }
+}
+
+class LibTokenizer {
+    constructor(content, internal = true) {
+        this.inc = []
+        this.content = undefined
+        if (internal) {
+            this.content = content.trim()
+        } else {
+            this.load(content)
+        }
+    }
+
+    load(path) {
+        const content = ''  // TODO: load via http or fs
+        this.content = content.replace(/^#\s*Include\s+"([^"]+)"/gm, (str, name) => {
+            this.inc.push(name)
             return ''
-        }).replace(/#\s*Track([^]+?)(#\s*End|(?=#\s*(Track|Chord|Function)))/g, (str, macroAll) => {
-            const macros = macroAll.match(/<\*\w+\*>[^]+?(?=<\*(\w+)\*>|$)/g)
-            for (const macro of macros) {
-                const [_, name, content] = macro.match(/<\*(\w+)\*>([^]+)/)
-                this.context.rawMacros[name] = content
+        })
+    }
+
+    tokenize() {
+        const result = []
+        let pointer = 0
+        for (const inc of this.inc) {
+            result.push({
+                Type: 'Package',
+                Path: name,
+                Content: new LibTokenizer(inc, false).tokenize()
+            })
+        }
+        while (pointer < this.content.length) {
+            const temp = this.content.slice(pointer)
+            const slice = temp.trim()
+            pointer += temp.length - slice.length
+
+            for (let index = 0; index < libDef.length; index++) {
+                const element = libDef[index]
+                const match = slice.match(element.regex)
+                if (match === null) continue
+                if (element.type === '@terminal') return result
+                result.push(element.transform(match))
+                pointer += match[0].length
+                break
             }
-            return ''
-        }).replace(/#\s*Chord([^]+?)(#\s*End|(?=#\s*(Track|Chord|Function)))/g, (str, chordAll) => {
-            const chordDef = {
-                Type: 'Chord',
-                Storage: 'Internal',
-                Data: []
-            }
-            const chordDefs = chordAll.split(/\r?\n/)
-            for (const c of chordDefs) {
-                const res = c.match(/([A-Za-z])\t+([^\t]+)\t+([^\t]+)/)
-                chordDef.Data.push({
-                    Notation: res[1],
-                    Comment: res[2],
-                    Pitches: res[3]
-                })
-            }
-        }, '') */
+        }
+        return result
     }
 }
 
