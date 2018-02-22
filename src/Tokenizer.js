@@ -17,13 +17,15 @@ const langDef = {
             action: {
                 token: 'instr',
                 transform(instrs) { // For ID
-                    return instrs[2].split(',').map((instr) => {
+                    const res = instrs[2].split(',').map((instr) => {
                         const info = instr.match(/(\w+)(\(\d+%\))?/)
                         return {
                             Instrument: info[1],
                             Proportion: info[2] === undefined ? null : Number(info[2].slice(1, -2)) / 100
                         }
                     })
+                    res.unshift(instrs[1].slice(0, -1))
+                    return res
                 }
             }
         },
@@ -562,10 +564,12 @@ class Tokenizer {
                 Tracks: []
             }
             for (const track of section) {
-                const tra = this.tokenizeTrack(track)
+                const tra = Tokenizer.tokenizeTrack(track)
                 const instr = tra.shift()
                 if (instr instanceof Array) {
+                    const ID = instr.shift()
                     sec.Tracks.push({
+                        ID,
                         Instruments: instr,
                         Content: tra
                     })
@@ -584,14 +588,6 @@ class Tokenizer {
         return track.every((element) => {
             return heads.includes(element.token) || (element.token === 'func' && settings.includes(element.match[1]))
         })
-    }
-
-    /**
-     * 
-     * @param {string} track 
-     */
-    tokenizeTrack(track) {
-        return Tokenizer.tokenizeTrack(track)
     }
 
     split() {
