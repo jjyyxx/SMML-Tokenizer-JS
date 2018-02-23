@@ -1,5 +1,377 @@
+const sDef = [
+    {
+        pat: [
+            {
+                Type: 'Sfunc',
+                Content: [
+                    /^(\d+)-/
+                ]
+            },
+            {
+                Type: 'Subtrack'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Tremolo1',
+                Simplified: true,
+                Argument: [
+                    {
+                        Type: 'Expression',
+                        Content: match[0].Content[0].Content.slice(0, -1)
+                    },
+                    match[1]
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Subtrack'
+            },
+            {
+                Type: 'Sfunc',
+                Content: [
+                    /^(\d+)=/
+                ]
+            },
+            {
+                Type: 'Subtrack'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Tremolo2',
+                Simplified: true,
+                Argument: [
+                    match[0],
+                    {
+                        Type: 'Expression',
+                        Content: match[1].Content[0].Content.slice(0, -1)
+                    },
+                    match[2]
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Subtrack'
+            },
+            {
+                Type: 'Undef',
+                Content: '~'
+            },
+            {
+                Type: 'Subtrack'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Porttamento',
+                Simplified: true,
+                Argument: [
+                    match[0],
+                    match[2]
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Undef',
+                Content: '$'
+            },
+            {
+                Type: 'Note'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Arpeggio',
+                Simplified: true,
+                Argument: [
+                    {
+                        Type: 'Subtrack',
+                        Repeat: -1,
+                        Content: [match[1]]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Sfunc',
+                Content: [
+                    /^\./
+                ]
+            },
+            {
+                Type: 'Subtrack'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Fermata',
+                Simplified: true,
+                Argument: [
+                    match[1]
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Sfunc',
+                Content: [
+                    /(\d+)~/
+                ]
+            },
+            {
+                Type: 'Subtrack'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Tuplet',
+                Simplified: true,
+                Argument: [
+                    {
+                        Type: 'Expression',
+                        Content: match[0].Content[0].Content.slice(0, -1)
+                    },
+                    match[1]
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Sfunc',
+                Content: [
+                    { Type: 'Subtrack'},
+                    /^\^/
+                ]
+            },
+            {
+                Type: 'Note'
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'GraceNote',
+                Simplified: true,
+                Argument: [
+                    match[0].Content[0],
+                    {
+                        Type: 'Subtrack',
+                        Content: [match[1]],
+                        Repeat: -1
+                    }
+                ]
+            }
+        }
+    },
+    {
+        pat: [
+            {
+                Type: 'Note'
+            },
+            {
+                Type: 'Sfunc',
+                Content: [
+                    /^\^/,
+                    { Type: 'Subtrack'}
+                ]
+            }
+        ],
+        transform(match) {
+            return {
+                Type: 'FUNCTION',
+                Name: 'Appoggiatura',
+                Simplified: true,
+                Argument: [
+                    {
+                        Type: 'Subtrack',
+                        Content: [match[0]],
+                        Repeat: -1
+                    },
+                    match[1].Content[1]
+                ]
+            }
+        }
+    },
+]
+
 const langDef = {
+    Dynamic: [
+        {
+            regex: /^{(\d+\*)?/,
+            action: {
+                token: 'subtrack',
+                next: 'root',
+                transform(subtrack, content) {
+                    let repeat
+                    if (subtrack[1] !== undefined) {
+                        repeat = subtrack[1].slice(0, -1)
+                    } else {
+                        const pos = content.filter((e) => e.Type === 'BarLine' && e.Order[0] > 0)
+                        if (pos.length > 0) {
+                            repeat = Math.max(...pos.map((e) => Math.max(...e.Order)))
+                        } else {
+                            repeat = -1
+                        }
+                    }
+                    return {
+                        Type: 'Subtrack',
+                        Repeat: repeat,
+                        Content: content
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\)/,
+            action: {
+                token: '@pass',
+                next: '@pop'
+            }
+        },
+        {
+            regex: /^[^{)]+/,
+            action: {
+                token: 'dyn',
+                transform(match) {
+                    return {
+                        Type: 'Dyn',
+                        Content: match[0]
+                    }
+                }
+            }
+        }
+    ],
     root: [
+        {
+            regex: /^\((\w+):([\d-]+)\)/,
+            action: {
+                token: 'sfunc',
+                transform(match) {
+                    return {
+                        Type: 'FUNCTION',
+                        Name: match[1],
+                        Argument: [
+                            {
+                                Type: 'Number',
+                                Content: Number(match[2])
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\((\d+)\/(\d+)\)/,
+            action: {
+                token: 'sfunc',
+                transform(match) {
+                    return {
+                        Type: 'FUNCTION',
+                        Name: 'BarBeat',
+                        Argument: [
+                            {
+                                Type: 'Number',
+                                Content: Number(match[1])
+                            },
+                            {
+                                Type: 'Number',
+                                Content: Number(match[2])
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\(1=(\w+)\)/,
+            action: {
+                token: 'sfunc',
+                transform(match) {
+                    return {
+                        Type: 'FUNCTION',
+                        Name: 'KeyOct',
+                        Argument: [
+                            {
+                                Type: 'String',
+                                Content: match[1]
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\((\d+)%\)/,
+            action: {
+                token: 'sfunc',
+                transform(match) {
+                    return {
+                        Type: 'FUNCTION',
+                        Name: 'Vol',
+                        Argument: [
+                            {
+                                Type: 'Number',
+                                Content: Number(match[1])
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\((\d+)\)/,
+            action: {
+                token: 'sfunc',
+                transform(match) {
+                    return {
+                        Type: 'FUNCTION',
+                        Name: 'Spd',
+                        Argument: [
+                            {
+                                Type: 'Number',
+                                Content: Number(match[1])
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\(/,
+            action: {
+                token: 'sfunc',
+                next: 'Dynamic',
+                transform(_, content) {
+                    return {
+                        Type: 'Sfunc',
+                        Content: content
+                    }
+                }
+            }
+        },
         {
             regex: /^\[(\d+\.)+\]/,
             action: {
@@ -24,7 +396,7 @@ const langDef = {
                             Proportion: info[2] === undefined ? null : Number(info[2].slice(1, -2)) / 100
                         }
                     })
-                    res.unshift(instrs[1].slice(0, -1))
+                    res.unshift(instrs[1] === undefined ? undefined : instrs[1].slice(0, -1))
                     return res
                 }
             }
@@ -231,6 +603,18 @@ const langDef = {
                         DurOp: note[4] === undefined ? '' : note[4],
                         VolOp: note[6] === undefined ? '' : note[6],
                         Staccato: note[5] === undefined ? 0 : note[5].length
+                    }
+                }
+            }
+        },
+        {
+            regex: /./,
+            action: {
+                token: 'undef',
+                transform (match) {
+                    return {
+                        Type: 'Undef',
+                        Content: match[0]
                     }
                 }
             }
@@ -496,6 +880,7 @@ class Tokenizer {
         while (pointer < track.length) {
             const temp = track.slice(pointer)
             const slice = temp.trim()
+            let matched = false
             pointer += temp.length - slice.length
             const patterns = langDef[states[depth]]
 
@@ -504,6 +889,7 @@ class Tokenizer {
                 const match = slice.match(element.regex)
                 if (match === null) continue
                 let action
+                matched = true
                 if ('cases' in element.action) {
                     if (match[0] in element.action.cases) {
                         action = element.action.cases[match[0]]
@@ -520,6 +906,32 @@ class Tokenizer {
                     if (action.next === '@pop') {
                         depth -= 1
                         const state = stateStore.pop()
+                        for (let i = 0; i < sDef.length; i++) {
+                            const s = sDef[i]
+                            for (let j = 0; j <= state.length - s.pat.length; j++) {
+                                let isMatch = true
+                                for (let k = 0; k < s.pat.length; k++) {
+                                    if (s.pat[k].Type === state[j + k].Type) {
+                                        if (s.pat[k].Type === 'sfunc') {
+                                            for (let l = 0; l < s.pat[k].Content.length; l++) {
+                                                if (s.pat[k].Content[l] instanceof RegExp) {
+                                                    if (!s.pat[k].Content[l].test(state[j + k].Content[l])) {
+                                                        isMatch = false
+                                                        break
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        isMatch = false
+                                        break
+                                    }
+                                }
+                                if (!isMatch) continue
+                                state.splice(j, s.pat.length, s.transform(state.slice(j, j + s.pat.length)))
+                            }
+                            
+                        }
                         states.pop()
                         stateStore[depth].push(stateStore[depth].pop()(state))
                     } else {
@@ -535,8 +947,45 @@ class Tokenizer {
                 pointer += match[0].length
                 break
             }
+            if (!matched) {
+                // stateStore.push(track.charAt(pointer))
+                // pointer += 1
+            }
         }
-        return stateStore[0]
+        const state = stateStore[0]
+        for (let i = 0; i < sDef.length; i++) {
+            const s = sDef[i]
+            for (let j = 1; j <= state.length - s.pat.length; j++) {
+                let isMatch = true
+                for (let k = 0; k < s.pat.length; k++) {
+                    if (s.pat[k].Type === state[j + k].Type) {
+                        if (s.pat[k].Type === 'Sfunc') {
+                            for (let l = 0; l < s.pat[k].Content.length; l++) {
+                                if (s.pat[k].Content[l] instanceof RegExp) {
+                                    if (state[j + k].Content[l].Type !== 'Dyn' ||!s.pat[k].Content[l].test(state[j + k].Content[l].Content)) {
+                                        isMatch = false
+                                        break
+                                    }
+                                } else if (s.pat[k].Content[l].Type !== state[j + k].Content[l].Type) {
+                                    isMatch = false
+                                    break
+                                }
+                            }
+                        } else if (s.pat[k].Type === 'Undef' && s.pat[k].Content !== state[j + k].Content){
+                            isMatch = false
+                            break
+                        }
+                    } else {
+                        isMatch = false
+                        break
+                    }
+                }
+                if (!isMatch) continue
+                state.splice(j, s.pat.length, s.transform(state.slice(j, j + s.pat.length)))
+            }
+            
+        }
+        return state
     }
     /**
      * Construct a tokenizer
@@ -614,10 +1063,13 @@ class Tokenizer {
                 Content: new LibTokenizer(name, false).tokenize()
             })
             return ''
-        }).replace(/[^]*^#\s*End/m, (headers) => {
-            this.result.Library.push(...new LibTokenizer(headers).tokenize())
-            return ''
         })
+        const end = this.content.match(/^#\s*End/m)
+        if (end !== null) {
+            const parts = this.content.split(end[0])
+            this.result.Library.push(...new LibTokenizer(parts[0] + end[0]).tokenize())
+            this.content = parts[1]
+        }
     }
 }
 

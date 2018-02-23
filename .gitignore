@@ -1,2 +1,3 @@
 *.json
 *.sml
+.vscode/launch.json
