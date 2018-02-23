@@ -563,7 +563,7 @@ const langDef = {
             }
         },
         {
-            regex: /^([0-7x%])([',#b]*)([A-Zac-z]*)([',#b]*)([-_.=]*)(`*)([:>]*)/,
+            regex: /^([0-7x%])([',#b]*)([A-Zac-wyz]*)([',#b]*)([-_.=]*)(`*)([:>]*)/,
             action: {
                 token: 'note',
                 transform(note) {
@@ -585,7 +585,7 @@ const langDef = {
             }
         },
         {
-            regex: /^\[(([0-7x%][',#A-Za-z]*)+)\]([',#b]*)([-_.=]*)(`*)([:>]*)/,
+            regex: /^\[(([0-7x%][',#A-Za-wyz]*)+)\]([',#b]*)([-_.=]*)(`*)([:>]*)/,
             action: {
                 token: 'chord',
                 transform(note) {
