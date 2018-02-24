@@ -306,7 +306,7 @@ const langDef = {
             }
         },
         {
-            regex: /^\(1=(\w+)\)/,
+            regex: /^\(1=([A-G',b#]+)\)/,
             action: {
                 token: 'sfunc',
                 transform(match) {
