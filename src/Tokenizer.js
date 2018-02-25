@@ -266,6 +266,122 @@ const langDef = {
     ],
     root: [
         {
+            regex: /^([0-7x%])([',#b]*)([A-Zac-wyz]*)([',#b]*)([-_.=]*)(`*)([:>]*)/,
+            action: {
+                token: 'note',
+                transform(note) {
+                    return {
+                        Type: 'Note',
+                        Pitches: [
+                            {
+                                Degree: note[1],
+                                PitOp: note[2] === undefined ? '' : note[2],
+                                Chord: note[3] === undefined ? '' : note[3]
+                            }
+                        ],
+                        PitOp: note[4] === undefined ? '' : note[4],
+                        DurOp: note[5] === undefined ? '' : note[5],
+                        VolOp: note[7] === undefined ? '' : note[7],
+                        Staccato: note[6] === undefined ? 0 : note[6].length
+                    }
+                }
+            }
+        },
+        {
+            regex: /^\[(([0-7x%][',#A-Za-wyz:>]*)+)\]([',#b]*)([-_.=]*)(`*)([:>]*)/,
+            action: {
+                token: 'chord',
+                transform(note) {
+                    return {
+                        Type: 'Note',
+                        Pitches: note[1].match(/[0-7x%][',#A-Za-wyz]*/g).map((pitch) => {
+                            const parts = pitch.match(/([0-7x%])([',#b]*)([ac-zA-Z]*)([:>]*)/)
+                            return {
+                                Degree: parts[1],
+                                PitOp: parts[2] === undefined ? '' : parts[2],
+                                Chord: parts[3] === undefined ? '' : parts[3],
+                                VolOp: parts[4] === undefined ? '' : parts[4]
+                            }
+                        }),
+                        PitOp: note[3] === undefined ? '' : note[3],
+                        DurOp: note[4] === undefined ? '' : note[4],
+                        VolOp: note[6] === undefined ? '' : note[6],
+                        Staccato: note[5] === undefined ? 0 : note[5].length
+                    }
+                }
+            }
+        },
+        {
+            regex: /^(:\|\|:|:\|\||\|\|:|\||\/([\d,~\s])*:|\/)/,
+            action: {
+                cases: {
+                    ':||:': {
+                        token: 'rEB',
+                    },
+                    ':||': {
+                        token: 'rE',
+                        transform() {
+                            return {
+                                Type: 'RepeatEnd'
+                            }
+                        }
+                    },
+                    '||:': {
+                        token: 'rB',
+                        transform() {
+                            return {
+                                Type: 'RepeatBegin'
+                            }
+                        }
+                    },
+                    '|': {
+                        token: 'ba',
+                        transform() {
+                            return {
+                                Type: 'BarLine',
+                                Skip: false,
+                                Order: [0]
+                            }
+                        }
+                    },
+                    '/': {
+                        token: 'skip',
+                        transform() {
+                            return {
+                                Type: 'BarLine',
+                                Skip: true,
+                                Order: [0]
+                            }
+                        }
+                    },
+                    '@default': {
+                        token: 'pos',
+                        transform(pos) {
+                            let order = []
+                            if (pos[1] !== undefined) {
+                                const parts = pos[1].split(',')
+                                for (const part of parts) {
+                                    if (part.includes('~')) {
+                                        const [left, right] = part.split('~')
+                                        for (var i = left; i <= right; i++) {
+                                            order.push(i)
+                                        }
+                                    } else {
+                                        order.push(Number(part))
+                                    }
+                                }
+                            }
+                            return {
+                                Type: 'BarLine',
+                                Skip: false,
+                                Order: order
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
             regex: /^\((\w+):([\d-]+)\)/,
             action: {
                 token: 'sfunc',
@@ -488,121 +604,6 @@ const langDef = {
                 transform() {
                     return {
                         Type: 'Tie'
-                    }
-                }
-            }
-        },
-        {
-            regex: /^(:\|\|:|:\|\||\|\|:|\||\/([\d,~\s])*:|\/)/,
-            action: {
-                cases: {
-                    ':||:': {
-                        token: 'rEB',
-                    },
-                    ':||': {
-                        token: 'rE',
-                        transform() {
-                            return {
-                                Type: 'RepeatEnd'
-                            }
-                        }
-                    },
-                    '||:': {
-                        token: 'rB',
-                        transform() {
-                            return {
-                                Type: 'RepeatBegin'
-                            }
-                        }
-                    },
-                    '|': {
-                        token: 'ba',
-                        transform() {
-                            return {
-                                Type: 'BarLine',
-                                Skip: false,
-                                Order: [0]
-                            }
-                        }
-                    },
-                    '/': {
-                        token: 'skip',
-                        transform() {
-                            return {
-                                Type: 'BarLine',
-                                Skip: true,
-                                Order: [0]
-                            }
-                        }
-                    },
-                    '@default': {
-                        token: 'pos',
-                        transform(pos) {
-                            let order = []
-                            if (pos[1] !== undefined) {
-                                const parts = pos[1].split(',')
-                                for (const part of parts) {
-                                    if (part.includes('~')) {
-                                        const [left, right] = part.split('~')
-                                        for (var i = left; i <= right; i++) {
-                                            order.push(i)
-                                        }
-                                    } else {
-                                        order.push(Number(part))
-                                    }
-                                }
-                            }
-                            return {
-                                Type: 'BarLine',
-                                Skip: false,
-                                Order: order
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        {
-            regex: /^([0-7x%])([',#b]*)([A-Zac-wyz]*)([',#b]*)([-_.=]*)(`*)([:>]*)/,
-            action: {
-                token: 'note',
-                transform(note) {
-                    return {
-                        Type: 'Note',
-                        Pitches: [
-                            {
-                                Degree: note[1],
-                                PitOp: note[2] === undefined ? '' : note[2],
-                                Chord: note[3] === undefined ? '' : note[3]
-                            }
-                        ],
-                        PitOp: note[4] === undefined ? '' : note[4],
-                        DurOp: note[5] === undefined ? '' : note[5],
-                        VolOp: note[7] === undefined ? '' : note[7],
-                        Staccato: note[6] === undefined ? 0 : note[6].length
-                    }
-                }
-            }
-        },
-        {
-            regex: /^\[(([0-7x%][',#A-Za-wyz]*)+)\]([',#b]*)([-_.=]*)(`*)([:>]*)/,
-            action: {
-                token: 'chord',
-                transform(note) {
-                    return {
-                        Type: 'Note',
-                        Pitches: note[1].match(/[0-7x%][',#A-Za-z]*/g).map((pitch) => {
-                            const parts = pitch.match(/([0-7x%])([',#b]*)([ac-zA-Z]*)/)
-                            return {
-                                Degree: parts[1],
-                                PitOp: parts[2] === undefined ? '' : parts[2],
-                                Chord: parts[3] === undefined ? '' : parts[3]
-                            }
-                        }),
-                        PitOp: note[3] === undefined ? '' : note[3],
-                        DurOp: note[4] === undefined ? '' : note[4],
-                        VolOp: note[6] === undefined ? '' : note[6],
-                        Staccato: note[5] === undefined ? 0 : note[5].length
                     }
                 }
             }
@@ -994,7 +995,7 @@ class Tokenizer {
     constructor(content) {
         this.content = content
         this.include = []
-        this.sections = undefined
+        this.sections = []
         this.libs = undefined
         this.result = {
             Library: [],
@@ -1031,24 +1032,26 @@ class Tokenizer {
         return this.result
     }
 
-    isHeadTrack(track) {
-        const heads = ['volta', 'rE', 'rB']
-        const settings = ['ConOct', 'Vol', 'Spd', 'Key', 'Oct', 'KeyOct', 'Beat', 'Bar', 'BarBeat', 'Dur', 'Acct', 'Light', 'Seg', 'Port', 'Trace', 'FadeIn', 'FadeOut', 'Rev', 'Ferm', 'Stac']
-        return track.every((element) => {
-            return heads.includes(element.token) || (element.token === 'func' && settings.includes(element.match[1]))
-        })
-    }
-
     split() {
-        this.sections = this.content.split(/(\r?\n){3,}/)
-            .filter((section) => section !== '' && section !== '\n' && section !== '\r\n')
-            .map((section) => section.split(/\r?\n\r?\n/)
-                .filter((track) => track !== '')
-                .map((track) => track.replace(/\r?\n/, '')))
+        const secs = this.content.split(/(\r?\n){3,}/)
+        for (let i = 0, length = secs.length; i < length; i++) {
+            const sec = secs[i]
+            const section = []
+            if (sec !== '' && sec !== '\n' && sec !== '\r\n') {
+                const tras = sec.split(/\r?\n\r?\n/)
+                for (let j = 0, length2 = tras.length; j < length2; j++) {
+                    const tra = tras[j]
+                    if (tra !== '') {
+                        section.push(tra.replace(/\r?\n/, ''))
+                    }
+                }
+            }
+            this.sections.push(section)
+        }
     }
 
     regularize() {
-        this.content = this.content.replace(/[ \t\f\v]+(\n|$)/g, '$1')
+        //this.content = this.content.replace(/[ \t\f\v]+(\n|$)/g, '$1')
     }
 
     removeComment() {
