@@ -1062,8 +1062,8 @@ class Tokenizer {
                         section.push(tra.replace(/\r?\n/, ''))
                     }
                 }
+                this.sections.push(section)
             }
-            this.sections.push(section)
         }
     }
 
