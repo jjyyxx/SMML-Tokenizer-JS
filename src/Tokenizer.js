@@ -162,7 +162,7 @@ const sDef = [
             {
                 Type: 'Sfunc',
                 Content: [
-                    { Type: 'Subtrack'},
+                    { Type: 'Subtrack' },
                     /^\^/
                 ]
             },
@@ -195,7 +195,7 @@ const sDef = [
                 Type: 'Sfunc',
                 Content: [
                     /^\^/,
-                    { Type: 'Subtrack'}
+                    { Type: 'Subtrack' }
                 ]
             }
         ],
@@ -612,7 +612,7 @@ const langDef = {
             regex: /./,
             action: {
                 token: 'undef',
-                transform (match) {
+                transform(match) {
                     return {
                         Type: 'Undef',
                         Content: match[0]
@@ -931,7 +931,7 @@ class Tokenizer {
                                 if (!isMatch) continue
                                 state.splice(j, s.pat.length, s.transform(state.slice(j, j + s.pat.length)))
                             }
-                            
+
                         }
                         states.pop()
                         stateStore[depth].push(stateStore[depth].pop()(state))
@@ -963,7 +963,7 @@ class Tokenizer {
                         if (s.pat[k].Type === 'Sfunc') {
                             for (let l = 0; l < s.pat[k].Content.length; l++) {
                                 if (s.pat[k].Content[l] instanceof RegExp) {
-                                    if (state[j + k].Content[l].Type !== 'Dyn' ||!s.pat[k].Content[l].test(state[j + k].Content[l].Content)) {
+                                    if (state[j + k].Content[l].Type !== 'Dyn' || !s.pat[k].Content[l].test(state[j + k].Content[l].Content)) {
                                         isMatch = false
                                         break
                                     }
@@ -972,7 +972,7 @@ class Tokenizer {
                                     break
                                 }
                             }
-                        } else if (s.pat[k].Type === 'Undef' && s.pat[k].Content !== state[j + k].Content){
+                        } else if (s.pat[k].Type === 'Undef' && s.pat[k].Content !== state[j + k].Content) {
                             isMatch = false
                             break
                         }
@@ -984,9 +984,17 @@ class Tokenizer {
                 if (!isMatch) continue
                 state.splice(j, s.pat.length, s.transform(state.slice(j, j + s.pat.length)))
             }
-            
+
         }
         return state
+    }
+
+    static isHeadTrack(track) {
+        const heads = ['Volta', 'RepeatBegin', 'RepeatEnd']
+        const settings = ['ConOct', 'Vol', 'Spd', 'Key', 'Oct', 'KeyOct', 'Beat', 'Bar', 'BarBeat', 'Dur', 'Acct', 'Light', 'Seg', 'Port', 'Trace', 'FadeIn', 'FadeOut', 'Rev', 'Ferm', 'Stac']
+        return track.every((element) => {
+            return heads.includes(element.Type) || (element.Type === 'FUNCTION' && settings.includes(element.Name))
+        })
     }
     /**
      * Construct a tokenizer
@@ -1015,16 +1023,25 @@ class Tokenizer {
             }
             for (const track of section) {
                 const tra = Tokenizer.tokenizeTrack(track)
-                const instr = tra.shift()
-                if (instr instanceof Array) {
+                if (tra[0] instanceof Array) {
+                    const instr = tra.shift()
                     const ID = instr.shift()
                     sec.Tracks.push({
                         ID,
                         Instruments: instr,
                         Content: tra
                     })
+                } else if (Tokenizer.isHeadTrack(tra)) {
+                    sec.Settings.push(...tra)
                 } else {
-                    sec.Settings.push(instr, ...tra)    // maybe wrong
+                    sec.Tracks.push({
+                        ID: null,
+                        Instruments: [{
+                            Instrument: '',
+                            Proportion: null
+                        }],
+                        Content: tra
+                    })
                 }
             }
             this.result.Sections.push(sec)
